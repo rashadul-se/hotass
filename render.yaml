@@ -1,0 +1,42 @@
+# Render Blueprint: New + > Blueprint > pick your repo
+services:
+  - type: web
+    name: compliancelens
+    runtime: python
+    plan: starter            # persistent disks need a paid plan; "free" works but loses history on restart
+    region: oregon
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      python -m nltk.downloader -d nltk_data punkt punkt_tab stopwords wordnet
+      averaged_perceptron_tagger averaged_perceptron_tagger_eng
+    startCommand: >-
+      streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+      --server.headless true --browser.gatherUsageStats false
+    healthCheckPath: /_stcore/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: NLTK_DATA
+        value: /opt/render/project/src/nltk_data
+      - key: APP_DATA_DIR
+        value: /var/data
+      - key: RULEBOOK_PATH
+        value: /opt/render/project/src/rulebook.md
+      - key: ARCHIVE_AFTER_DAYS
+        value: "30"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: compliancelens-cache
+          property: connectionString
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+
+  - type: keyvalue            # Render's Redis-compatible cache
+    name: compliancelens-cache
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []           # private network only
