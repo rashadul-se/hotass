@@ -103,13 +103,31 @@ class Config:
     def archive_dir(self) -> Path:
         return self.data_dir / "archive"
 
+    @staticmethod
+    def _writable_dir(wanted: Path, base: Path) -> Path:
+        """Use APP_DATA_DIR if it can be written (e.g. a mounted disk); otherwise fall back to a
+        local folder so the app still starts. The fallback is NOT persistent on hosts like Render."""
+        for candidate in (wanted, base / "data", Path(tempfile.gettempdir()) / "compliancelens"):
+            try:
+                candidate.mkdir(parents=True, exist_ok=True)
+                probe = candidate / ".write_test"
+                probe.write_text("ok")
+                probe.unlink()
+                if candidate != wanted:
+                    log.warning("Data dir %s is not writable - using %s (history will not persist)",
+                                wanted, candidate)
+                return candidate
+            except OSError:
+                continue
+        raise RuntimeError("No writable data directory available.")
+
     @classmethod
     def from_env(cls) -> "Config":
         base = Path(__file__).resolve().parent
         env = os.getenv
         return cls(
             base_dir=base,
-            data_dir=Path(env("APP_DATA_DIR", str(base / "data"))),
+            data_dir=cls._writable_dir(Path(env("APP_DATA_DIR", str(base / "data"))), base),
             rulebook_path=Path(env("RULEBOOK_PATH", str(base / "rulebook.md"))),
             redis_url=env("REDIS_URL", ""),
             cache_ttl_s=int(env("CACHE_TTL_SECONDS", "86400")),
