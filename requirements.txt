@@ -1,0 +1,6 @@
+streamlit>=1.40
+pandas>=2.0
+requests>=2.31
+pypdf>=4.0          # PDF input
+nltk>=3.9           # optional: high-fidelity NLP (falls back to a built-in engine if absent/offline)
+redis>=5.0          # optional: hot cache, enabled by setting REDIS_URL
